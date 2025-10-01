@@ -14,7 +14,7 @@ python3 -m venv venv
  
 ./venv/bin/pip install "pysnmp==7.1.21" "mysql-connector-python==9.4.0" "pandas==2.3.3" "sqlalchemy==2.0.43" "pymysql==1.1.2"
  
-wget -qO snmp_to_mysql.py https://pastebin.com/raw/DH0fKppc
+wget -qO snmp_to_mysql.py https://raw.githubusercontent.com/ViktorShch/turism/refs/heads/main/snmp_to_mysql.py
 chmod +x snmp_to_mysql.py
  
 CRON_CMD="/opt/snmp_to_mysql/venv/bin/python /opt/snmp_to_mysql/snmp_to_mysql.py >> /opt/snmp_to_mysql/snmp_to_mysql.log 2>&1"
