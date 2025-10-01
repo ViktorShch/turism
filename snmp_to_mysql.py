@@ -4,22 +4,19 @@
 
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip wget
- 
 sudo mkdir -p /opt/snmp_to_mysql
 sudo chown $USER:$USER /opt/snmp_to_mysql
 cd /opt/snmp_to_mysql
- 
+
 python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
- 
 ./venv/bin/pip install "pysnmp==7.1.21" "mysql-connector-python==9.4.0" "pandas==2.3.3" "sqlalchemy==2.0.43" "pymysql==1.1.2"
- 
+
 wget -qO snmp_to_mysql.py https://raw.githubusercontent.com/ViktorShch/turism/refs/heads/main/snmp_to_mysql.py
 chmod +x snmp_to_mysql.py
- 
-CRON_CMD="/opt/snmp_to_mysql/venv/bin/python /opt/snmp_to_mysql/snmp_to_mysql.py >> /opt/snmp_to_mysql/snmp_to_mysql.log 2>&1"
-( crontab -l 2>/dev/null | grep -Fv "$CRON_CMD" ; echo "20,50 * * * * $CRON_CMD" ) | crontab -
 
+CRON_CMD="/opt/snmp_to_mysql/venv/bin/python /opt/snmp_to_mysql/snmp_to_mysql.py"
+( crontab -l 2>/dev/null | grep -Fv "$CRON_CMD" ; echo "20,50 * * * * $CRON_CMD" ) | crontab -
 """
 
 
@@ -162,8 +159,7 @@ RICOH_A3_OIDS = {
     "a3_mono_duplex": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.297",
     "a4_color_duplex": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.298",
     "a3_color_duplex": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.299",
-    "scan_a4": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.300",
-    "scan_a3": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.301",
+    "scan": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.286",
     "cur_k": "1.3.6.1.2.1.43.11.1.1.9.1.1",
     "cur_c": "1.3.6.1.2.1.43.11.1.1.9.1.3",
     "cur_m": "1.3.6.1.2.1.43.11.1.1.9.1.4",
@@ -191,9 +187,7 @@ def _proc_ricoh_a3(data: Dict[str, Any]) -> Dict[str, Any]:
         "a3_mono": _safe_sum(get("a3_mono_simplex"), get("a3_mono_duplex")),
         "a4_color": _safe_sum(get("a4_color_simplex"), get("a4_color_duplex")),
         "a3_color": _safe_sum(get("a3_color_simplex"), get("a3_color_duplex")),
-        "scan_total": (lambda a, b: (_to_int(a) or 0) + (_to_int(b) or 0))(
-            get("scan_a4"), get("scan_a3")
-        ),
+        "scan_total": _to_int(get("scan"))
     }
 
 
@@ -328,7 +322,6 @@ DEVICE_PROFILES = {
     "ECOSYS MA3500cix": {"oids": KYO_A4_OIDS, "processor": _proc_kyo_a4},
     "RICOH SP C360SFNw": {"oids": RICOH_A4_OIDS, "processor": _proc_ricoh_a4},
     "RICOH SP C360SNw": {"oids": RICOH_A4_OIDS, "processor": _proc_ricoh_a4},
-    "TASKalfa": {"oids": KYO_A3_OIDS, "processor": _proc_kyo_a3},
 }
 
 
