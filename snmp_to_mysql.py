@@ -215,12 +215,18 @@ KYO_A3_OIDS = {
 def _proc_kyo_a3(data: Dict[str, Any]) -> Dict[str, Any]:
     g = lambda k: data.get(KYO_A3_OIDS[k])
     a4_mono = _to_int(g("a4_mono"))
-    a3_mono = (
-        (_to_int(g("a3_mono")) // 2) if _to_int(g("a3_mono")) is not None else None
-    )
+    # a3_mono = (
+    #     (_to_int(g("a3_mono")) // 2) if _to_int(g("a3_mono")) is not None else None
+    # )
+    a3_mono = _to_int(g("a3_mono")) if _to_int(g("a3_mono")) is not None else None
     a4_color = (_to_int(g("a4_color")) or 0) + (_to_int(g("a4_one")) or 0)
+    # a3_color = (
+    #     ((_to_int(g("a3_color")) or 0) + (_to_int(g("a3_one")) or 0)) // 2
+    #     if _to_int(g("a3_color")) is not None
+    #     else None
+    # )
     a3_color = (
-        ((_to_int(g("a3_color")) or 0) + (_to_int(g("a3_one")) or 0)) // 2
+        (_to_int(g("a3_color")) or 0) + (_to_int(g("a3_one")) or 0)
         if _to_int(g("a3_color")) is not None
         else None
     )
