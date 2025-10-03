@@ -77,11 +77,17 @@ def _to_int(v: Any) -> Optional[int]:
 
 
 def _safe_percent(current: Any, maximum: Any) -> Optional[int]:
-    """Вернуть процент заполнения (0..100) или None."""
+    """
+    Возвращает процент заполнения (0..100).
+    Если любое значение None возвращает None.
+    Если любое значение меньше нуля возвращает 0.
+    """
     cur = _to_int(current)
     mx = _to_int(maximum)
     if cur is None or mx in None or mx == 0:
         return None
+    if cur < 0 or mx < 0:
+        return 0
     return int(round(100.0 * cur / mx))
 
 
