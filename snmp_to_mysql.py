@@ -80,20 +80,23 @@ def _safe_percent(current: Any, maximum: Any) -> Optional[int]:
     """Вернуть процент заполнения (0..100) или None."""
     cur = _to_int(current)
     mx = _to_int(maximum)
-    if cur is None or mx in (None, 0):
+    if cur is None or mx in None or mx == 0:
         return None
     return int(round(100.0 * cur / mx))
 
 
-def _safe_sum(simplex: Any, duplex: Any, duplex_weight: int = 2) -> Optional[int]:
-    """Простая сумма: simplex + duplex_weight * duplex."""
-    s = _to_int(simplex)
-    d = _to_int(duplex)
-    if s is None and d is None:
+def _safe_sum(x: Any, y: Any, factor: int = 1) -> Optional[int]:
+    """
+    Сумма с условием, оба слагаемых приводятся к int
+    * если factor не указан, простая сумма
+    * если factor указан, второе слагаемое умножается на factor
+    (необходимо для сложения сиплекс и дуплекс счетчиков)
+    """
+    safe_x = _to_int(x)
+    safe_y = _to_int(y)
+    if safe_x is None and safe_y is None:
         return None
-    s = s or 0
-    d = d or 0
-    return s + duplex_weight * d
+    return (safe_x or 0) + factor * (safe_y or 0)
 
 
 async def snmp_get_bulk_async(
@@ -133,7 +136,7 @@ async def snmp_get_bulk_async(
         if errorStatus:
             LOG.warning("SNMP %s errorStatus: %s", ip, errorStatus.prettyPrint())
             return results
-        LOG.warning("SNMP %s done!", ip)
+        LOG.info("SNMP %s done!", ip)
 
         for oid_obj, val in varBinds:
             results[str(oid_obj)] = val.prettyPrint()
@@ -159,7 +162,8 @@ RICOH_A3_OIDS = {
     "a3_mono_duplex": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.297",
     "a4_color_duplex": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.298",
     "a3_color_duplex": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.299",
-    "scan": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.286",
+    "scan_color": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.207",
+    "scan_mono": "1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.208",
     "cur_k": "1.3.6.1.2.1.43.11.1.1.9.1.1",
     "cur_c": "1.3.6.1.2.1.43.11.1.1.9.1.3",
     "cur_m": "1.3.6.1.2.1.43.11.1.1.9.1.4",
@@ -183,11 +187,11 @@ def _proc_ricoh_a3(data: Dict[str, Any]) -> Dict[str, Any]:
         "m": _safe_percent(get("cur_m"), get("max_m")),
         "y": _safe_percent(get("cur_y"), get("max_y")),
         "k": _safe_percent(get("cur_k"), get("max_k")),
-        "a4_mono": _safe_sum(get("a4_mono_simplex"), get("a4_mono_duplex")),
-        "a3_mono": _safe_sum(get("a3_mono_simplex"), get("a3_mono_duplex")),
-        "a4_color": _safe_sum(get("a4_color_simplex"), get("a4_color_duplex")),
-        "a3_color": _safe_sum(get("a3_color_simplex"), get("a3_color_duplex")),
-        "scan_total": _to_int(get("scan"))
+        "a4_mono": _safe_sum(get("a4_mono_simplex"), get("a4_mono_duplex"), factor=2),
+        "a3_mono": _safe_sum(get("a3_mono_simplex"), get("a3_mono_duplex"), factor=2),
+        "a4_color": _safe_sum(get("a4_color_simplex"), get("a4_color_duplex"), factor=2),
+        "a3_color": _safe_sum(get("a3_color_simplex"), get("a3_color_duplex"), factor=2),
+        "scan_total": _safe_sum(get("scan_mono"), get("scan_color")),
     }
 
 
@@ -214,22 +218,6 @@ KYO_A3_OIDS = {
 
 def _proc_kyo_a3(data: Dict[str, Any]) -> Dict[str, Any]:
     g = lambda k: data.get(KYO_A3_OIDS[k])
-    a4_mono = _to_int(g("a4_mono"))
-    # a3_mono = (
-    #     (_to_int(g("a3_mono")) // 2) if _to_int(g("a3_mono")) is not None else None
-    # )
-    a3_mono = _to_int(g("a3_mono")) if _to_int(g("a3_mono")) is not None else None
-    a4_color = (_to_int(g("a4_color")) or 0) + (_to_int(g("a4_one")) or 0)
-    # a3_color = (
-    #     ((_to_int(g("a3_color")) or 0) + (_to_int(g("a3_one")) or 0)) // 2
-    #     if _to_int(g("a3_color")) is not None
-    #     else None
-    # )
-    a3_color = (
-        (_to_int(g("a3_color")) or 0) + (_to_int(g("a3_one")) or 0)
-        if _to_int(g("a3_color")) is not None
-        else None
-    )
 
     return {
         "date": datetime.now(),
@@ -239,10 +227,10 @@ def _proc_kyo_a3(data: Dict[str, Any]) -> Dict[str, Any]:
         "m": _safe_percent(g("cur_m"), g("max_m")),
         "y": _safe_percent(g("cur_y"), g("max_y")),
         "k": _safe_percent(g("cur_k"), g("max_k")),
-        "a4_color": a4_color,
-        "a4_mono": a4_mono,
-        "a3_color": a3_color,
-        "a3_mono": a3_mono,
+        "a4_color": _safe_sum(g("a4_color"), g("a4_one")),
+        "a4_mono": _to_int(g("a4_mono")),
+        "a3_color": _safe_sum(g("a3_color"), g("a3_one")),
+        "a3_mono": _to_int(g("a3_mono")),
         "scan_total": _to_int(g("scan_total")),
     }
 
@@ -267,8 +255,6 @@ KYO_A4_OIDS = {
 
 def _proc_kyo_a4(data: Dict[str, Any]) -> Dict[str, Any]:
     g = lambda k: data.get(KYO_A4_OIDS[k])
-    a4_mono = _to_int(g("a4_mono"))
-    a4_color = (_to_int(g("a4_color")) or 0) + (_to_int(g("a4_one")) or 0)
     return {
         "date": datetime.now(),
         "serial": g("serial"),
@@ -277,8 +263,8 @@ def _proc_kyo_a4(data: Dict[str, Any]) -> Dict[str, Any]:
         "m": _safe_percent(g("cur_m"), g("max_m")),
         "y": _safe_percent(g("cur_y"), g("max_y")),
         "k": _safe_percent(g("cur_k"), g("max_k")),
-        "a4_color": a4_color,
-        "a4_mono": a4_mono,
+        "a4_color": _safe_sum(g("a4_color"), g("a4_one")),
+        "a4_mono": _to_int(g("a4_mono")),
         "a3_color": None,
         "a3_mono": None,
         "scan_total": _to_int(g("scan_total")),
@@ -305,7 +291,6 @@ RICOH_A4_OIDS = {
 
 def _proc_ricoh_a4(data: Dict[str, Any]) -> Dict[str, Any]:
     g = lambda k: data.get(RICOH_A4_OIDS[k])
-    scan_total = (_to_int(g("scan_color")) or 0) + (_to_int(g("scan_mono")) or 0)
     return {
         "date": datetime.now(),
         "serial": g("serial"),
@@ -318,7 +303,7 @@ def _proc_ricoh_a4(data: Dict[str, Any]) -> Dict[str, Any]:
         "a3_mono": None,
         "a4_color": _to_int(g("a4_color")),
         "a3_color": None,
-        "scan_total": scan_total,
+        "scan_total": _safe_sum(g("scan_color"), g("scan_mono")),
     }
 
 
